@@ -1,7 +1,12 @@
 const express = require('express');
+//Se instancia el objecto enrutador de express
 const router =  express.Router();
+//importa el cliente oficial de elasticseach
 const elastic = require('elasticsearch');
+//permite leer json en POST request
 const bodyParser = require('body-parser').json();
+//Se crea una instancia del cliente de elasticsearch,
+//que se conecta a localhost en el puerto 9200
 const elasticClient = elastic.Client({
   host: 'localhost:9200',
 });
@@ -44,52 +49,6 @@ router.use((req, res, next)=>{
   next();
 });
 
-router.get('/products', (req, res)=>{
-  let query = {
-    index: 'products'
-  }
-  if (req.query.product) query.q =  `*${req.query.product}*`;
-  elasticClient.search(query)
-  .then(resp=>{
-    return res.status(200).json({
-      products: resp.hits.hits
-    });
-  })
-  .catch(err=>{
-    console.log(err);
-    return res.status(500).json({
-      msg: 'Error',
-      err
-    });
-  });
-});
-
-router.get('/products/:id', (req, res)=>{
-  let query = {
-    index: 'products',
-    id: req.params.id
-  }
-  console.log(query);
-  elasticClient.get(query)
-  .then(resp=>{
-    if(!resp){
-      return res.status(404).json({
-        product: resp
-      });
-    }
-    return res.status(200).json({
-      product: resp
-    });
-  })
-  .catch(err=>{
-    console.log(err)
-    return res.status(500).json({
-      msg: 'Error not found',
-      err
-    });
-  });
-});
-
 router.post('/products', bodyParser, (req, res)=>{
   elasticClient.index({
     index: 'products',
@@ -108,9 +67,34 @@ router.post('/products', bodyParser, (req, res)=>{
   })
 });
 
+router.get('/products/:id', (req, res)=>{
+  let query = {
+    index: 'products',
+    id: req.params.id
+  }
+  elasticClient.get(query)
+  .then(resp=>{
+    if(!resp){
+      return res.status(404).json({
+        product: resp
+      });
+    }
+    return res.status(200).json({
+      product: resp
+    });
+  })
+  .catch(err=>{
+    return res.status(500).json({
+      msg: 'Error not found',
+      err
+    });
+  });
+});
+
 router.put('/products/:id', bodyParser, (req, res)=>{
-  elasticClient.index({
-    index: 'update',
+  elasticClient.update({
+    index: 'products',
+    id: req.params.id,
     body: {
       doc: req.body
     }
@@ -142,8 +126,28 @@ router.delete('/products/:id', (req, res)=>{
   .catch(err=>{
     res.status(404).json({
       'msg': 'Error'
-    })
+    });
+  });
+});
+
+router.get('/products', (req, res)=>{
+  let query = {
+    index: 'products'
+  }
+  if (req.query.product) query.q =  `*${req.query.product}*`;
+  elasticClient.search(query)
+  .then(resp=>{
+    return res.status(200).json({
+      products: resp.hits.hits
+    });
   })
-})
+  .catch(err=>{
+    console.log(err);
+    return res.status(500).json({
+      msg: 'Error',
+      err
+    });
+  });
+});
 
 module.exports = router;
